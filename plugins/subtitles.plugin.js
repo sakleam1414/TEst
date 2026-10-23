@@ -276,9 +276,9 @@ module.exports = class Subtitles {
         if (checking) {
             box.dataset.state = "checking";
             text.textContent = "● Tailscale: проверка участников…";
-        } else if (unknown === total - 1 && total > 1) {
+        } else if (unknown === total) {
             box.dataset.state = "partial";
-            text.textContent = "● Tailscale: адреса участников не заданы";
+            text.textContent = "● Tailscale: адреса не заданы — проверить нельзя";
         } else if (online === total) {
             box.dataset.state = "ok";
             text.textContent = `✓ Tailscale: все в сети (${online}/${total})`;
@@ -377,31 +377,25 @@ module.exports = class Subtitles {
             this.participantMenu.append(row);
             rows.set(user.id, { row, captions, presence });
 
-            if (isSelf) {
-                this.offlineUsers.delete(user.id);
-                this.setParticipantState(row, "online", "В сети · этот ПК");
-                presence.textContent = "✓";
-                presence.dataset.status = "online";
-                continue;
-            }
-            this.setParticipantState(row, "checking", "Проверка…");
+            this.setParticipantState(row, "checking", isSelf ? "Проверка Tailscale на этом ПК…" : "Проверка…");
             presence.textContent = "●";
             presence.dataset.status = "checking";
             captions.disabled = true;
         }
 
-        const counts = { online: 1, total: users.length, unknown: 0, checking: true };
+        const counts = { online: 0, total: users.length, unknown: 0, checking: true };
         this.renderTailscaleStatus(counts);
         counts.checking = false;
 
-        const results = await Promise.all(users.filter(u => u.id !== currentUser?.id).map(async user => ({
+        const results = await Promise.all(users.map(async user => ({
             user,
             state: await this.checkPeer(user.id)
         })));
         if (this.participantRefreshId !== refreshId || !this.participantMenu || this.participantMenu.hidden) return;
 
-        counts.online = 1;
+        counts.online = 0;
         counts.unknown = 0;
+        const isSelfRow = user => user.id === currentUser?.id;
         for (const { user, state } of results) {
             const entry = rows.get(user.id);
             if (!entry) continue;
@@ -413,9 +407,9 @@ module.exports = class Subtitles {
             else this.offlineUsers.add(user.id);
 
             const labels = {
-                online: "В сети (Tailscale)",
-                offline: "Не в сети",
-                unknown: "Адрес Tailscale не задан"
+                online: isSelfRow(user) ? "В сети (Tailscale, этот ПК)" : "В сети (Tailscale)",
+                offline: isSelfRow(user) ? "Tailscale не запущен или нет связи" : "Не в сети",
+                unknown: isSelfRow(user) ? "Свой адрес Tailscale не задан в настройках" : "Адрес Tailscale не задан"
             };
             this.setParticipantState(row, state, labels[state]);
             presence.textContent = online ? "✓" : state === "unknown" ? "●" : "×";
