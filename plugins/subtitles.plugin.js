@@ -387,11 +387,15 @@ module.exports = class Subtitles {
         this.renderTailscaleStatus(counts);
         counts.checking = false;
 
+        refreshBtn.disabled = true;
+        refreshBtn.textContent = "Проверяю…";
         const results = await Promise.all(users.map(async user => ({
             user,
             state: await this.checkPeer(user.id)
         })));
         if (this.participantRefreshId !== refreshId || !this.participantMenu || this.participantMenu.hidden) return;
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = "Проверить";
 
         counts.online = 0;
         counts.unknown = 0;
